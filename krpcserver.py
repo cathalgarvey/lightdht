@@ -5,7 +5,7 @@ import struct
 import logging
 import traceback
 
-from bencode import bencode, bdecode, BTFailure
+from .bencode import bencode, bdecode, BTFailure
 
 # Logging is disabled by default.
 # See http://docs.python.org/library/logging.html
@@ -41,7 +41,7 @@ class KRPCServer(object):
             Default incoming KRPC request handler.
             Gets replaces by application specific code.
         """
-        print req
+        print(req)
 
 
     def start(self):
@@ -110,11 +110,11 @@ class KRPCServer(object):
                         logger.warning("Node %r reported error %r, but did "
                                        "not specify a 't'" % (c,rec))
                 else:
-                    raise RuntimeError,"Unknown KRPC message %r from %r" % (rec,c)
+                    raise RuntimeError("Unknown KRPC message %r from %r" % (rec,c))
 
                 # Scrub the transaction list
                 t1 = time.time()
-                for tid,(cb,node) in self._transactions.items():
+                for tid,(cb,node) in list(self._transactions.items()):
                     if t1-node.treq > 10.0:
                         with self._transactions_lock:
                             if tid in self._transactions:
@@ -130,9 +130,9 @@ class KRPCServer(object):
             except Exception as E:
                 # Log and carry on to keep the packet pump alive.
                 #logger.critical("Exception while handling KRPC requests:\n\n"+traceback.format_exc()+("\n\n%r from %r" % (rec,c)))
-                logger.critical(("Exception while handling KRPC requests:\n\n"
-                                 str(E)
-                                 "\n\n{request} from {peer}".format(request=rec, peer=c) ) )
+                logger.critical("Exception while handling KRPC requests:\n\n" +\
+                                 str(E) +\
+                                 "\n\n{request} from {peer}".format(request=rec, peer=c) )
 
     def send_krpc(self, req , node,callback=None):
         """
@@ -189,7 +189,7 @@ class KRPCServer(object):
 
         if r["y"]=="e":
             # Error condition!
-            raise KRPCError, "Error %r while processing transaction %r" % (r,q)
+            raise KRPCError("Error %r while processing transaction %r" % (r,q))
 
         return r["r"]
 

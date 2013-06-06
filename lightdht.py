@@ -22,8 +22,8 @@ import threading
 import traceback
 import logging
 
-from krpcserver import KRPCServer, KRPCTimeout, KRPCError
-from routingtable import PrefixRoutingTable
+from .krpcserver import KRPCServer, KRPCTimeout, KRPCError
+from .routingtable import PrefixRoutingTable
 
 # See http://docs.python.org/library/logging.html
 logger = logging.getLogger(__name__)
@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 def dottedQuadToNum(ip):
     """convert decimal dotted quad string to long integer"""
     # Replace with ip package?
-    hexn = ''.join(["%02X" % long(i) for i in ip.split('.')])
-    return long(hexn, 16)
+    hexn = ''.join(["%02X" % int(i) for i in ip.split('.')])
+    return int(hexn, 16)
 
 
 def numToDottedQuad(n):
@@ -54,7 +54,7 @@ def decode_nodes(nodes):
     """ Decode node_info into a list of id, connect_info """
     nrnodes = len(nodes) / 26
     nodes = struct.unpack("!" + "20sIH" * nrnodes, nodes)
-    for i in xrange(nrnodes):
+    for i in range(nrnodes):
         id_, ip, port = nodes[i * 3], numToDottedQuad(nodes[i * 3 + 1]), nodes[i * 3 + 2]
         yield id_, (ip, port)
 
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     # Start it!
     with dht1:
         # Look up peers that are sharing one of the Ubuntu 12.04 ISO torrents
-        print dht1.get_peers("8ac3731ad4b039c05393b5404afa6e7397810b41".decode("hex"))
+        print(dht1.get_peers("8ac3731ad4b039c05393b5404afa6e7397810b41".decode("hex")))
         # Go to sleep and let the DHT service requests.
         while True:
             time.sleep(1)
