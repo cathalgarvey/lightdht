@@ -33,14 +33,13 @@ logger = logging.getLogger(__name__)
 # Utility functions
 def dottedQuadToNum(ip):
     """convert decimal dotted quad string to long integer"""
-
+    # Replace with ip package?
     hexn = ''.join(["%02X" % long(i) for i in ip.split('.')])
     return long(hexn, 16)
 
 
 def numToDottedQuad(n):
     """convert long int to dotted quad string"""
-
     d = 256 * 256 * 256
     q = []
     while d > 0:
@@ -64,6 +63,7 @@ def encode_nodes(nodes):
     """ Encode a list of (id, connect_info) pairs into a node_info """
     n = []
     for node in nodes:
+        # node.c[0] is ip, node.c[1] is port.
         n.extend([node[0], dottedQuadToNum(node[1].c[0]), node[1].c[1]])
     return struct.pack("!" + "20sIH" * len(nodes), *n)
 
@@ -118,7 +118,11 @@ class DHT(object):
         self._server.handler = self.handler
 
         # Add the default nodes
+        # socket.gethostbyaddr returns (hostname, aliaslist, ipaddrlist)
+        # So, this uses the first alternate ip address of router.bittorrent.com
+        # according to DNS resolution.
         DEFAULT_CONNECT_INFO = (socket.gethostbyaddr("router.bittorrent.com")[2][0], 6881)
+        # Default_Node is assigned a tuple of (ip, port)
         DEFAULT_NODE = Node(DEFAULT_CONNECT_INFO)
         DEFAULT_ID = self._server.ping(os.urandom(20), DEFAULT_NODE)['id']
         self._rt.update_entry(DEFAULT_ID, DEFAULT_NODE)

@@ -5,22 +5,21 @@ import struct
 import logging
 import traceback
 
-from bencode import bencode, bdecode
-from BTL import BTFailure
+from bencode import bencode, bdecode, BTFailure
 
 # Logging is disabled by default.
 # See http://docs.python.org/library/logging.html
 logger = logging.getLogger(__name__)
 #logger.addHandler(logging.NullHandler())
 
-class KRPCTimeout(RuntimeError):
+class KRPCError(Exception):
+    pass
+
+class KRPCTimeout(KRPCError):
     """
         This exception is raised whenever a KRPC request times out
         in synchronous mode.
     """
-    pass
-
-class KRPCError(RuntimeError):
     pass
 
 class KRPCServer(object):
@@ -128,10 +127,12 @@ class KRPCServer(object):
             except BTFailure:
                 # bdecode error, ignore the packet
                 pass
-            except:
+            except Exception as E:
                 # Log and carry on to keep the packet pump alive.
-                logger.critical("Exception while handling KRPC requests:\n\n"+traceback.format_exc()+("\n\n%r from %r" % (rec,c)))
-
+                #logger.critical("Exception while handling KRPC requests:\n\n"+traceback.format_exc()+("\n\n%r from %r" % (rec,c)))
+                logger.critical(("Exception while handling KRPC requests:\n\n"
+                                 str(E)
+                                 "\n\n{request} from {peer}".format(request=rec, peer=c) ) )
 
     def send_krpc(self, req , node,callback=None):
         """
