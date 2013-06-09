@@ -1,3 +1,9 @@
+# Project-specific:
+get-peers.*.log
+incoming-requests.log
+
+__pycache__
+
 *.py[co]
 
 # Packages
