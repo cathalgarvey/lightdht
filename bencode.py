@@ -70,6 +70,8 @@ decode_func = {
 
 def bdecode(x):
     try:
+        if isinstance(x, str):
+            x = x.encode()
         r, l = decode_func[x[0]](x, 0)
     except (IndexError, KeyError, ValueError) as e:
         raise BTFailure("{0}; Not a valid bencoded string:\n".format(type(e))+str(e))
@@ -95,9 +97,11 @@ def encode_bool(x, r):
         encode_int(1, r)
     else:
         encode_int(0, r)
-        
+
 def encode_string(x, r):
-    r.extend((str(len(x)).encode('utf8'), b':', x.encode('utf8')))
+    if isinstance(x, str):
+        x = x.encode()
+    r.extend((str(len(x)).encode('utf8'), b':', x))
 
 def encode_list(x, r):
     r.append(b'l')
@@ -117,6 +121,7 @@ def encode_dict(x,r):
 encode_func = {
             Bencached:  encode_bencached,
             int:        encode_int,
+            bytes:      encode_string,
             str:        encode_string,
             list:       encode_list,
             tuple:      encode_list,
@@ -124,6 +129,8 @@ encode_func = {
             bool:       encode_bool }
 
 def bencode(x):
+    if isinstance(x, str):
+        x = x.encode()
     r = []
     encode_func[type(x)](x, r)
     return b''.join(r)

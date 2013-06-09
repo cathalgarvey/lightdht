@@ -6,10 +6,12 @@ import time
 
 def strxor(a, b):
     """ xor two strings of different lengths """
+    if isinstance(a, str): a = a.encode()
+    if isinstance(b, str): b = b.encode()
     if len(a) > len(b):
-        return "".join([chr(ord(x) ^ ord(y)) for (x, y) in zip(a[:len(b)], b)])
+        return "".join([chr(x ^ y) for (x, y) in zip(a[:len(b)], b)])
     else:
-        return "".join([chr(ord(x) ^ ord(y)) for (x, y) in zip(a, b[:len(a)])])
+        return "".join([chr(x ^ y) for (x, y) in zip(a, b[:len(a)])])
 
 
 class RoutingTable(object):
@@ -69,7 +71,7 @@ class FlatRoutingTable(RoutingTable):
         # and return the top N matches
         with self._nodes_lock:
             nodes = [(node_id, self._nodes[node_id]) for node_id in self._nodes]
-        nodes.sort(key=lambda x: strxor(target, x[0]))
+        nodes.sort(key=lambda x: strxor(target, x[0:1]))
         return nodes[:N]
 
     def remove_node(self, node_id):
@@ -86,8 +88,11 @@ class FlatRoutingTable(RoutingTable):
 
     def sample(self, id_, N, prefix_bytes=1):
         with self._nodes_lock:
-            return random.sample([(k, v) for k, v in list(self._nodes.items()) if k[:prefix_bytes] == id_[:prefix_bytes]], N)
-
+            nodes_to_select = [(k, v) for k, v in list(self._nodes.items()) if k[:prefix_bytes] == id_[:prefix_bytes]]
+            if len(nodes_to_select) >= N:
+                return nodes_to_select
+            else:
+                return random.sample(nodes_to_select, N)
 
 class PrefixRoutingTable(RoutingTable):
     def __init__(self, prefix_bytes=1):
@@ -103,9 +108,12 @@ class PrefixRoutingTable(RoutingTable):
 
     def get_close_nodes(self, target, N=3):
         with self._nodes_lock:
-            p = min(list(self._nodes.keys()), key=lambda x: abs(ord(x) ^ ord(target[0])))
+            ordered_keys = sorted(self._nodes.keys(), key = lambda x: abs(x[0] ^ target[0]))
+#            p = min(list(self._nodes.keys()), key = lambda x: abs(x[0] ^ target[0]))
+            ordered_nonempty_keys = filter(lambda x:bool(self._nodes[x]), ordered_keys)
+            p = list(ordered_nonempty_keys)[0]
             ids = sorted(self._nodes[p], key=lambda x: strxor(x, target))[:8]
-            return [(id, self._nodes[p][id]) for id in ids]
+            return [(id_, self._nodes[p][id_]) for id_ in ids]
 
     def remove_node(self, node_id):
         with self._nodes_lock:
@@ -127,7 +135,11 @@ class PrefixRoutingTable(RoutingTable):
         if prefix_bytes != self._prefix_bytes:
             raise ValueError("Expected prefix_bytes:%d, got %d" % (self._prefix_bytes, prefix_bytes))
         with self._nodes_lock:
-            return random.sample(list(self._nodes[id_[:prefix_bytes]].items()), N)
+            nodes_to_select = list(self._nodes[id_[:prefix_bytes]].items())
+            if len(nodes_to_select) >= N:
+                return nodes_to_select
+            else:
+                return random.sample(nodes_to_select, N)
 
     def _random_node(self,prefix, outstanding=False):
         """

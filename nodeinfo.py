@@ -6,8 +6,9 @@
 import logging
 import time
 import os
+from binhex import binascii
 
-from . import lightdht
+import lightdht
 
 
 # Enable logging:
@@ -30,17 +31,17 @@ id_ = os.urandom(20)
 dht = lightdht.DHT(port=54768, id_=id_, version="XN\x00\x00") 
 
 # where to put our product
-outf = open("get-peers.%s.log" % id_.encode("hex"),"a")
+outf = open("get-peers.{}.log".format(binascii.hexlify(id_).decode()), "a")
 
 # handler
 def myhandler(rec, c):
     try:    
-        if rec["y"] =="q":
-            if rec["q"] == "get_peers":
+        if rec["y"] == b"q":
+            if rec["q"] == b"get_peers":
                 print(";".join(
                     [   str(time.time()),
-                        rec["a"].get("id").encode("hex"),
-                        rec["a"].get("info_hash").encode("hex"),
+                        binascii.hexlify(rec["a"].get("id")       ).decode(),
+                        binascii.hexlify(rec["a"].get("info_hash")).decode(),
                         repr(c),
                     ]), file=outf)
                 outf.flush()
@@ -55,6 +56,24 @@ dht.self_find_delay = 30
 
 # Start it!
 with dht:
+    # Debian install DVD:
+    target_infohash = binascii.unhexlify("96534331d2d75acf14f8162770495bd5b05a17a9")
+    found_infohash = False
+
     # Go to sleep and let the DHT service requests.
+    elapsed = 0
     while True:
         time.sleep(1)
+        elapsed += 1
+        # Debian install iso: 96534331d2d75acf14f8162770495bd5b05a17a9
+        try:
+            # Give find_node two minutes to populate..
+            if elapsed < 120: continue
+            if not found_infohash:
+                dht.find_node(target_infohash)
+            torrent_peers = dht.get_peers(target_infohash)
+            if torrent_peers:
+                found_infohash = True
+                print("Got peers:\n", torrent_peers)
+        except:
+            pass

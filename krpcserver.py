@@ -5,7 +5,7 @@ import struct
 import logging
 import traceback
 
-from .bencode import bencode, bdecode, BTFailure
+from bencode import bencode, bdecode, BTFailure
 
 # Logging is disabled by default.
 # See http://docs.python.org/library/logging.html
@@ -75,7 +75,7 @@ class KRPCServer(object):
                 rec,c = self._sock.recvfrom(4096)
                 logger.debug("Received data from %r", c)
                 rec = bdecode(rec)
-                if rec["y"] == "r":
+                if rec["y"] == b"r":
                     # It's a reply.
                     # Remove the transaction id from the list of pending
                     # transactions and add the result to the result table.
@@ -92,10 +92,10 @@ class KRPCServer(object):
                             else:
                                 self._results[t] = rec # sync path
                             del self._transactions[t]
-                elif rec["y"] == "q":
+                elif rec["y"] == b"q":
                     # It's a request, send it to the handler.
                     self.handler(rec,c)
-                elif rec["y"] == "e":
+                elif rec["y"] == b"e":
                     # just post the error to the results array,  but only if
                     # we have a transaction ID!
                     # Some software (e.g. LibTorrent) does not post the "t"
@@ -134,10 +134,11 @@ class KRPCServer(object):
                                  str(E) +\
                                  "\n\n{request} from {peer}".format(request=rec, peer=c) )
 
-    def send_krpc(self, req , node,callback=None):
+    def send_krpc(self, req , node, callback=None):
         """
             Perform a KRPC request
         """
+        #print("In send_krpc.")
         logger.debug("KRPC request to %r", node.c)
         t = -1
         if "t" not in req:
@@ -155,16 +156,21 @@ class KRPCServer(object):
         node.t.add(t)
 
         self._sock.sendto(data, node.c)
+        #print("Sent",data,"to",node.c)
+        #print("Leaving send_krpc.")
         return t
 
     def send_krpc_reply(self, resp, connect_info):
         """
            Bencode and send a reply to a KRPC client
         """
+        #print("In send_krpc_reply")
         logger.info("REPLY: %r %r" % (connect_info, resp))
 
         data = bencode(resp)
         self._sock.sendto(data,connect_info)
+        #print("Sent",data,"to",connect_info)
+        #print("Leaving send_krpc_reply")
 
     def _synctrans(self, q, node):
         """
@@ -175,22 +181,23 @@ class KRPCServer(object):
         # the request, then waiting for the server thread
         # to post the results of our transaction into
         # the results dict.
+        #print("In _synctrans")
         t = self.send_krpc(q, node)
-        dt = 0
+        sent_t = time.time()
         while t not in self._results:
-            time.sleep(0.1)
-            dt+=0.1
-            if dt > 5.0:
-                raise KRPCTimeout
+            time.sleep(1)
+            #print("Current delta-time:",abs(sent_t - time.time()))
+            if abs(sent_t - time.time()) > 10:
+                raise KRPCTimeout("Peer "+str(node)+" timed out after 5 seconds.")
 
         # Retrieve the result
-        r = self._results[t]
-        del self._results[t]
+        r = self._results.pop(t)
 
-        if r["y"]=="e":
+        if r["y"]==r"e":
             # Error condition!
-            raise KRPCError("Error %r while processing transaction %r" % (r,q))
+            raise KRPCError("Error {0} while processing transaction {1}".format(r,q))
 
+        #print("Leaving _synctrans")
         return r["r"]
 
 
@@ -198,7 +205,7 @@ class KRPCServer(object):
         q = { "y":"q", "q":"ping", "a":{"id":id_}}
         return self._synctrans(q, node)
 
-    def find_node(self, id_,node, target):
+    def find_node(self, id_, node, target):
         q = { "y":"q", "q":"find_node", "a":{"id":id_,"target":target}}
         return self._synctrans(q, node)
 
